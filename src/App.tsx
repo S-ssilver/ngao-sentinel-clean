@@ -1,27 +1,156 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "./lib/supabase";
+import Login from "./pages/Login";
+import Dashboard from "./Dashboard";
+import Sites from "./pages/Sites";
+import Incidents from "./pages/Incidents";
+import Personnel from "./pages/Personnel";
+import Activity from "./pages/Activity";
 import {
   LayoutDashboard,
   MapPin,
   AlertTriangle,
   Users,
-  Activity,
+  Activity as ActivityIcon,
   Shield,
   Radio,
+  LogOut,
 } from "lucide-react";
-
-import Dashboard from "./Dashboard";
-import Sites from "./pages/Sites";
 import "./App.css";
 
+type Profile = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string | null;
+};
+
+type Page =
+  | "dashboard"
+  | "sites"
+  | "incidents"
+  | "personnel"
+  | "activity";
+
+const rolePermissions: Record<string, Page[]> = {
+  "Operations Manager": [
+    "dashboard",
+    "sites",
+    "incidents",
+    "personnel",
+    "activity",
+  ],
+
+  Supervisor: [
+    "dashboard",
+    "sites",
+    "incidents",
+    "personnel",
+    "activity",
+  ],
+
+  Client: [
+    "dashboard",
+    "sites",
+    "incidents",
+    "activity",
+  ],
+};
+
 function App() {
-  const [page, setPage] = useState("dashboard");
+  const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState<Page>("dashboard");
+
+  useEffect(() => {
+    async function loadUser() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      setSession(session);
+
+      if (session?.user) {
+        await loadProfile(session.user.id);
+      }
+
+      setLoading(false);
+    }
+
+    async function loadProfile(userId: string) {
+      const { data, error } = await supabase
+        .from("Profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (error) {
+        console.error("Profile error:", error);
+      } else {
+        setProfile(data);
+      }
+    }
+
+    loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+
+      if (session?.user) {
+        await loadProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function logout() {
+    await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
+  }
+
+  if (loading) {
+    return (
+      <div className="auth-loading">
+        <div>
+          <strong>NGAO</strong>
+          <span>Loading secure environment...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login />;
+  }
+
+  const role = profile?.role || "User";
+
+  const permissions = rolePermissions[role] || ["dashboard"];
+
+  // If the current page isn't allowed for this role,
+  // return the user to the dashboard.
+  const safePage = permissions.includes(page) ? page : "dashboard";
+
+  function canAccess(targetPage: Page) {
+    return permissions.includes(targetPage);
+  }
 
   return (
     <div className="app">
       <aside className="sidebar">
+        {/* BRAND */}
         <div className="brand">
           <div className="brand-mark">
-            <Shield size={25} />
+            <Shield size={24} />
           </div>
 
           <div className="brand-text">
@@ -30,46 +159,84 @@ function App() {
           </div>
         </div>
 
+        {/* NAVIGATION */}
         <div className="nav-section">
-          <p className="nav-label">OPERATIONS</p>
+          <p className="nav-label">{role.toUpperCase()}</p>
 
           <nav className="nav">
-            <button
-              className={page === "dashboard" ? "nav-item active" : "nav-item"}
-              onClick={() => setPage("dashboard")}
-            >
-              <LayoutDashboard size={19} />
-              <span>Dashboard</span>
-            </button>
+            {canAccess("dashboard") && (
+              <button
+                className={
+                  safePage === "dashboard"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() => setPage("dashboard")}
+              >
+                <LayoutDashboard size={19} />
+                <span>Dashboard</span>
+              </button>
+            )}
 
-            <button
-              className={page === "sites" ? "nav-item active" : "nav-item"}
-              onClick={() => setPage("sites")}
-            >
-              <MapPin size={19} />
-              <span>Protected Sites</span>
-            </button>
+            {canAccess("sites") && (
+              <button
+                className={
+                  safePage === "sites"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() => setPage("sites")}
+              >
+                <MapPin size={19} />
+                <span>Protected Sites</span>
+              </button>
+            )}
 
-            <button className="nav-item">
-              <AlertTriangle size={19} />
-              <span>Incidents</span>
-              <span className="nav-soon">SOON</span>
-            </button>
+            {canAccess("incidents") && (
+              <button
+                className={
+                  safePage === "incidents"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() => setPage("incidents")}
+              >
+                <AlertTriangle size={19} />
+                <span>Incidents</span>
+              </button>
+            )}
 
-            <button className="nav-item">
-              <Users size={19} />
-              <span>Personnel</span>
-              <span className="nav-soon">SOON</span>
-            </button>
+            {canAccess("personnel") && (
+              <button
+                className={
+                  safePage === "personnel"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() => setPage("personnel")}
+              >
+                <Users size={19} />
+                <span>Personnel</span>
+              </button>
+            )}
 
-            <button className="nav-item">
-              <Activity size={19} />
-              <span>Activity</span>
-              <span className="nav-soon">SOON</span>
-            </button>
+            {canAccess("activity") && (
+              <button
+                className={
+                  safePage === "activity"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() => setPage("activity")}
+              >
+                <ActivityIcon size={19} />
+                <span>Activity</span>
+              </button>
+            )}
           </nav>
         </div>
 
+        {/* SIDEBAR BOTTOM */}
         <div className="sidebar-bottom">
           <div className="system-online">
             <span className="online-dot" />
@@ -81,13 +248,39 @@ function App() {
             <span>Live monitoring active</span>
           </div>
 
+          <div className="user-info">
+            <strong>{profile?.name || profile?.email}</strong>
+            <span>{role}</span>
+          </div>
+
+          <button className="logout-button" onClick={logout}>
+            <LogOut size={15} />
+            Sign out
+          </button>
+
           <small>NGAO Sentinel v1.0</small>
         </div>
       </aside>
 
+      {/* MAIN CONTENT */}
       <main className="main">
-        {page === "dashboard" && <Dashboard />}
-        {page === "sites" && <Sites />}
+        {safePage === "dashboard" && (
+  <Dashboard profile={profile} />
+)}
+
+        {safePage === "sites" && <Sites profile={profile} />}
+
+        {safePage === "incidents" && (
+  <Incidents profile={profile} />
+)}
+
+        {safePage === "personnel" && (
+  <Personnel profile={profile} />
+)}
+
+        {safePage === "activity" && (
+  <Activity profile={profile} />
+)}
       </main>
     </div>
   );
