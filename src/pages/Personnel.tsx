@@ -7,6 +7,7 @@ import {
   UserCheck,
   Clock,
   MapPin,
+  UserPlus,
 } from "lucide-react";
 
 type Guard = {
@@ -52,15 +53,28 @@ export default function Personnel({
   const isSupervisor =
     profile?.role === "Supervisor";
 
-  const [guards, setGuards] = useState<Guard[]>([]);
+   const [guards, setGuards] = useState<Guard[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
   const [showAddGuard, setShowAddGuard] = useState(false);
   const [guardName, setGuardName] = useState("");
   const [guardPhone, setGuardPhone] = useState("");
   const [addingGuard, setAddingGuard] = useState(false);
+
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUserRole, setNewUserRole] = useState<
+    "Client" | "Supervisor"
+  >("Client");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] =
+    useState("");
+  const [creatingUser, setCreatingUser] =
+    useState(false);
+
   const [assigningGuardId, setAssigningGuardId] =
     useState<string | null>(null);
 
@@ -179,6 +193,75 @@ export default function Personnel({
     return sites.find(
       (site) => site.id === siteId
     );
+  }
+
+    async function createUser() {
+    if (!newUserName.trim()) {
+      alert("Please enter the user's full name.");
+      return;
+    }
+
+    if (!newUserEmail.trim()) {
+      alert("Please enter the user's email.");
+      return;
+    }
+
+    if (newUserPassword.length < 8) {
+      alert("Temporary password must be at least 8 characters.");
+      return;
+    }
+
+    setCreatingUser(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        alert("Your session has expired. Please log in again.");
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            name: newUserName.trim(),
+            email: newUserEmail.trim(),
+            password: newUserPassword,
+            role: newUserRole,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(result.error || "Unable to create user.");
+        return;
+      }
+
+      alert(
+        `${newUserRole} account created successfully for ${newUserName.trim()}.`
+      );
+
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserRole("Client");
+      setShowAddUser(false);
+    } catch (error) {
+      console.error("Create user error:", error);
+      alert("Something went wrong while creating the user.");
+    } finally {
+      setCreatingUser(false);
+    }
   }
 
   async function assignGuardToSite(
@@ -334,6 +417,27 @@ export default function Personnel({
                 gap: "10px",
               }}
             >
+              <button
+                className="refresh-button"
+                onClick={() => {
+                  setNewUserRole("Client");
+                  setShowAddUser(true);
+              }}
+>
+              <UserPlus size={17} />
+               Add Client
+              </button>
+
+              <button
+                className="refresh-button"
+                onClick={() => {
+                  setNewUserRole("Supervisor");
+                  setShowAddUser(true);
+               }}
+>
+              <UserPlus size={17} />
+               Add Supervisor
+              </button>
               <button
                 className="refresh-button"
                 onClick={() =>
@@ -576,6 +680,122 @@ export default function Personnel({
               );
             }
           )}
+        </div>
+      )}
+
+            {showAddUser && (
+        <div className="guard-modal-overlay">
+          <div className="guard-modal">
+            <div className="guard-modal-header">
+              <div>
+                <p className="page-eyebrow">
+                  USER MANAGEMENT
+                </p>
+
+                <h2>
+                  Add {newUserRole}
+                </h2>
+              </div>
+
+              <button
+                className="guard-modal-close"
+                onClick={() =>
+                  setShowAddUser(false)
+                }
+              >
+                x
+              </button>
+            </div>
+
+            <div className="guard-form">
+              <label>
+                Full Name
+
+                <input
+                  type="text"
+                  placeholder={`Enter ${newUserRole.toLowerCase()}'s full name`}
+                  value={newUserName}
+                  onChange={(e) =>
+                    setNewUserName(e.target.value)
+                  }
+                />
+              </label>
+
+              <label>
+                Email Address
+
+                <input
+                  type="email"
+                  placeholder="Enter email address"
+                  value={newUserEmail}
+                  onChange={(e) =>
+                    setNewUserEmail(e.target.value)
+                  }
+                />
+              </label>
+
+              <label>
+                Temporary Password
+
+                <input
+                  type="password"
+                  placeholder="Minimum 8 characters"
+                  value={newUserPassword}
+                  onChange={(e) =>
+                    setNewUserPassword(
+                      e.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <label>
+                Role
+
+                <select
+                  value={newUserRole}
+                  onChange={(e) =>
+                    setNewUserRole(
+                      e.target.value as
+                        | "Client"
+                        | "Supervisor"
+                    )
+                  }
+                >
+                  <option value="Client">
+                    Client
+                  </option>
+
+                  <option value="Supervisor">
+                    Supervisor
+                  </option>
+                </select>
+              </label>
+
+              <div className="guard-form-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    setShowAddUser(false)
+                  }
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  className="refresh-button"
+                  disabled={creatingUser}
+                  onClick={createUser}
+                >
+                  {creatingUser
+                    ? "Creating..."
+                    : `Create ${newUserRole}`}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
