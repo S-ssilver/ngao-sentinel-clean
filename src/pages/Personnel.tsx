@@ -17,6 +17,8 @@ type Guard = {
   site_id: string | null;
   status: string;
   created_at: string;
+  guard_id: string | null;
+  auth_user_id: string | null;
 };
 
 type Attendance = {
@@ -77,6 +79,18 @@ export default function Personnel({
 
   const [assigningGuardId, setAssigningGuardId] =
     useState<string | null>(null);
+
+  const [showGuardLogin, setShowGuardLogin] =
+  useState(false);
+
+  const [selectedGuard, setSelectedGuard] =
+  useState<Guard | null>(null);
+
+  const [guardLoginPassword, setGuardLoginPassword] =
+  useState("");
+
+  const [creatingGuardLogin, setCreatingGuardLogin] =
+  useState(false);
 
   async function loadPersonnel() {
     setLoading(true);
@@ -265,43 +279,117 @@ export default function Personnel({
   }
 
   async function assignGuardToSite(
-    guardId: string,
-    siteId: string
-  ) {
-    setAssigningGuardId(guardId);
+  guardId: string,
+  siteId: string
+) {
+  setAssigningGuardId(guardId);
 
-    const { error } = await supabase
-      .from("guards")
-      .update({
-        site_id: siteId || null,
-      })
-      .eq("id", guardId);
+  const { error } = await supabase
+    .from("guards")
+    .update({
+      site_id: siteId || null,
+    })
+    .eq("id", guardId);
 
-    if (error) {
-      console.error(
-        "Assign guard error:",
-        error
-      );
-      alert(
-        `Unable to assign guard to site: ${error.message}`
-      );
-    } else {
-      setGuards((currentGuards) =>
-        currentGuards.map((guard) =>
-          guard.id === guardId
-            ? {
-                ...guard,
-                site_id: siteId || null,
-              }
-            : guard
-        )
-      );
-    }
-
-    setAssigningGuardId(null);
+  if (error) {
+    console.error(
+      "Assign guard error:",
+      error
+    );
+    alert(
+      `Unable to assign guard to site: ${error.message}`
+    );
+  } else {
+    setGuards((currentGuards) =>
+      currentGuards.map((guard) =>
+        guard.id === guardId
+          ? {
+              ...guard,
+              site_id: siteId || null,
+            }
+          : guard
+      )
+    );
   }
 
-  const filteredPersonnel =
+  setAssigningGuardId(null);
+}
+
+async function createGuardLogin() {
+  if (!selectedGuard) {
+    return;
+  }
+
+  if (guardLoginPassword.length < 8) {
+    alert(
+      "Password must be at least 8 characters."
+    );
+    return;
+  }
+
+  setCreatingGuardLogin(true);
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      alert(
+        "Your session has expired. Please log in again."
+      );
+      return;
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-guard-user`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          guard_id: selectedGuard.id,
+          password: guardLoginPassword,
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      alert(
+        result.error ||
+          "Unable to create guard login."
+      );
+      return;
+    }
+
+    alert(
+      `Login created successfully for ${selectedGuard.name}.\n\nGuard ID: ${result.guard.guard_id}\n\nGive the Guard ID and password to the guard.`
+    );
+
+    setGuardLoginPassword("");
+    setSelectedGuard(null);
+    setShowGuardLogin(false);
+
+    await loadPersonnel();
+  } catch (error) {
+    console.error(
+      "Create guard login error:",
+      error
+    );
+
+    alert(
+      "Something went wrong while creating the guard login."
+    );
+  } finally {
+    setCreatingGuardLogin(false);
+  }
+}
+
+const filteredPersonnel =
     attendance.filter((person) => {
       const site = getSite(person.site_id);
 
@@ -527,6 +615,33 @@ export default function Personnel({
                               value={site.id}
                             >
                               {site.name}
+
+                              {guard.auth_user_id ? (
+                           <div
+                              style={{
+                                marginTop: "10px",
+                                fontSize: "13px",
+                                fontWeight: 600,
+                              }}
+                             >
+                               Guard ID: {guard.guard_id}
+                            </div>
+                          ) : (
+                           <button
+                            type="button"
+                            className="refresh-button"
+                            style={{
+                               marginTop: "10px",
+                           }}
+                            onClick={() => {
+                             setSelectedGuard(guard);
+                             setGuardLoginPassword("");
+                              setShowGuardLogin(true);
+                           }}
+                        >
+                            Create Login
+                           </button>
+)}
                             </option>
                           ))}
                         </select>
@@ -904,7 +1019,7 @@ export default function Personnel({
                       await loadPersonnel();
                     }
 
-                    setAddingGuard(false);
+                                       setAddingGuard(false);
                   }}
                 >
                   {addingGuard
@@ -916,6 +1031,117 @@ export default function Personnel({
           </div>
         </div>
       )}
+
+      {showGuardLogin && selectedGuard && (
+        <div className="guard-modal-overlay">
+          <div className="guard-modal">
+            <div className="guard-modal-header">
+              <div>
+                <p className="page-eyebrow">
+                  GUARD ACCESS
+                </p>
+
+                <h2>Create Guard Login</h2>
+              </div>
+
+              <button
+                className="guard-modal-close"
+                onClick={() => {
+                  setShowGuardLogin(false);
+                  setSelectedGuard(null);
+                  setGuardLoginPassword("");
+                }}
+              >
+                x
+              </button>
+            </div>
+
+            <div className="guard-form">
+              <div>
+                <strong>Guard Name</strong>
+
+                <p
+                  style={{
+                    marginTop: "5px",
+                    marginBottom: "0",
+                  }}
+                >
+                  {selectedGuard.name}
+                </p>
+              </div>
+
+              <div>
+                <strong>Guard ID</strong>
+
+                <p
+                  style={{
+                    marginTop: "5px",
+                    marginBottom: "0",
+                    fontWeight: 700,
+                  }}
+                >
+                  {selectedGuard.guard_id ||
+                    "Will be generated automatically"}
+                </p>
+              </div>
+
+              <label>
+                Password
+
+                <input
+                  type="password"
+                  placeholder="Minimum 8 characters"
+                  value={guardLoginPassword}
+                  onChange={(e) =>
+                    setGuardLoginPassword(
+                      e.target.value
+                    )
+                  }
+                />
+              </label>
+
+              <p
+                style={{
+                  fontSize: "13px",
+                  opacity: 0.75,
+                  margin: "0",
+                }}
+              >
+                The guard will use this Guard ID
+                and password to access the Guard
+                Portal.
+              </p>
+
+              <div className="guard-form-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={creatingGuardLogin}
+                  onClick={() => {
+                    setShowGuardLogin(false);
+                    setSelectedGuard(null);
+                    setGuardLoginPassword("");
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  className="refresh-button"
+                  disabled={creatingGuardLogin}
+                  onClick={createGuardLogin}
+                >
+                  {creatingGuardLogin
+                    ? "Creating Login..."
+                    : "Create Login"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
