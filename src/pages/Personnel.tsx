@@ -55,23 +55,28 @@ export default function Personnel({
   const isSupervisor =
     profile?.role === "Supervisor";
 
-   const [guards, setGuards] = useState<Guard[]>([]);
+  const [guards, setGuards] = useState<Guard[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
-  const [showAddGuard, setShowAddGuard] = useState(false);
+  const [showAddGuard, setShowAddGuard] =
+    useState(false);
   const [guardName, setGuardName] = useState("");
   const [guardPhone, setGuardPhone] = useState("");
-  const [addingGuard, setAddingGuard] = useState(false);
+  const [addingGuard, setAddingGuard] =
+    useState(false);
 
-  const [showAddUser, setShowAddUser] = useState(false);
+  const [showAddUser, setShowAddUser] =
+    useState(false);
   const [newUserRole, setNewUserRole] = useState<
     "Client" | "Supervisor"
   >("Client");
-  const [newUserName, setNewUserName] = useState("");
-  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserName, setNewUserName] =
+    useState("");
+  const [newUserEmail, setNewUserEmail] =
+    useState("");
   const [newUserPassword, setNewUserPassword] =
     useState("");
   const [creatingUser, setCreatingUser] =
@@ -81,21 +86,17 @@ export default function Personnel({
     useState<string | null>(null);
 
   const [showGuardLogin, setShowGuardLogin] =
-  useState(false);
-
+    useState(false);
   const [selectedGuard, setSelectedGuard] =
-  useState<Guard | null>(null);
-
+    useState<Guard | null>(null);
   const [guardLoginPassword, setGuardLoginPassword] =
-  useState("");
-
+    useState("");
   const [creatingGuardLogin, setCreatingGuardLogin] =
-  useState(false);
+    useState(false);
 
   async function loadPersonnel() {
     setLoading(true);
 
-    // Get sites this user is allowed to see
     let sitesQuery = supabase
       .from("sites")
       .select("id, name, location");
@@ -110,7 +111,10 @@ export default function Personnel({
     const sitesResult = await sitesQuery;
 
     if (sitesResult.error) {
-      console.error("Sites error:", sitesResult.error);
+      console.error(
+        "Sites error:",
+        sitesResult.error
+      );
       setSites([]);
       setGuards([]);
       setAttendance([]);
@@ -119,13 +123,13 @@ export default function Personnel({
     }
 
     const allowedSites = sitesResult.data || [];
+
     const allowedSiteIds = allowedSites.map(
       (site) => site.id
     );
 
     setSites(allowedSites);
 
-    // Supervisor with no assigned site
     if (
       isSupervisor &&
       allowedSiteIds.length === 0
@@ -136,7 +140,6 @@ export default function Personnel({
       return;
     }
 
-    // Load guards
     let guardsQuery = supabase
       .from("guards")
       .select("*")
@@ -151,7 +154,6 @@ export default function Personnel({
       );
     }
 
-    // Load attendance
     let attendanceQuery = supabase
       .from("attendance_logs")
       .select("*")
@@ -209,19 +211,25 @@ export default function Personnel({
     );
   }
 
-    async function createUser() {
+  async function createUser() {
     if (!newUserName.trim()) {
-      alert("Please enter the user's full name.");
+      alert(
+        "Please enter the user's full name."
+      );
       return;
     }
 
     if (!newUserEmail.trim()) {
-      alert("Please enter the user's email.");
+      alert(
+        "Please enter the user's email."
+      );
       return;
     }
 
     if (newUserPassword.length < 8) {
-      alert("Temporary password must be at least 8 characters.");
+      alert(
+        "Temporary password must be at least 8 characters."
+      );
       return;
     }
 
@@ -233,7 +241,9 @@ export default function Personnel({
       } = await supabase.auth.getSession();
 
       if (!session) {
-        alert("Your session has expired. Please log in again.");
+        alert(
+          "Your session has expired. Please log in again."
+        );
         return;
       }
 
@@ -257,7 +267,10 @@ export default function Personnel({
       const result = await response.json();
 
       if (!response.ok) {
-        alert(result.error || "Unable to create user.");
+        alert(
+          result.error ||
+            "Unable to create user."
+        );
         return;
       }
 
@@ -271,125 +284,131 @@ export default function Personnel({
       setNewUserRole("Client");
       setShowAddUser(false);
     } catch (error) {
-      console.error("Create user error:", error);
-      alert("Something went wrong while creating the user.");
+      console.error(
+        "Create user error:",
+        error
+      );
+      alert(
+        "Something went wrong while creating the user."
+      );
     } finally {
       setCreatingUser(false);
     }
   }
 
   async function assignGuardToSite(
-  guardId: string,
-  siteId: string
-) {
-  setAssigningGuardId(guardId);
+    guardId: string,
+    siteId: string
+  ) {
+    setAssigningGuardId(guardId);
 
-  const { error } = await supabase
-    .from("guards")
-    .update({
-      site_id: siteId || null,
-    })
-    .eq("id", guardId);
+    const { error } = await supabase
+      .from("guards")
+      .update({
+        site_id: siteId || null,
+      })
+      .eq("id", guardId);
 
-  if (error) {
-    console.error(
-      "Assign guard error:",
-      error
-    );
-    alert(
-      `Unable to assign guard to site: ${error.message}`
-    );
-  } else {
-    setGuards((currentGuards) =>
-      currentGuards.map((guard) =>
-        guard.id === guardId
-          ? {
-              ...guard,
-              site_id: siteId || null,
-            }
-          : guard
-      )
-    );
-  }
+    if (error) {
+      console.error(
+        "Assign guard error:",
+        error
+      );
 
-  setAssigningGuardId(null);
-}
-
-async function createGuardLogin() {
-  if (!selectedGuard) {
-    return;
-  }
-
-  if (guardLoginPassword.length < 8) {
-    alert(
-      "Password must be at least 8 characters."
-    );
-    return;
-  }
-
-  setCreatingGuardLogin(true);
-
-  try {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
       alert(
-        "Your session has expired. Please log in again."
+        `Unable to assign guard to site: ${error.message}`
+      );
+    } else {
+      setGuards((currentGuards) =>
+        currentGuards.map((guard) =>
+          guard.id === guardId
+            ? {
+                ...guard,
+                site_id: siteId || null,
+              }
+            : guard
+        )
+      );
+    }
+
+    setAssigningGuardId(null);
+  }
+
+  async function createGuardLogin() {
+    if (!selectedGuard) {
+      return;
+    }
+
+    if (guardLoginPassword.length < 8) {
+      alert(
+        "Password must be at least 8 characters."
       );
       return;
     }
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-guard-user`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          guard_id: selectedGuard.id,
-          password: guardLoginPassword,
-        }),
+    setCreatingGuardLogin(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        alert(
+          "Your session has expired. Please log in again."
+        );
+        return;
       }
-    );
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      alert(
-        result.error ||
-          "Unable to create guard login."
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-guard-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            guard_id: selectedGuard.id,
+            password: guardLoginPassword,
+          }),
+        }
       );
-      return;
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert(
+          result.error ||
+            "Unable to create guard login."
+        );
+        return;
+      }
+
+      alert(
+        `Login created successfully for ${selectedGuard.name}.\n\nGuard ID: ${result.guard.guard_id}\n\nGive the Guard ID and password to the guard.`
+      );
+
+      setGuardLoginPassword("");
+      setSelectedGuard(null);
+      setShowGuardLogin(false);
+
+      await loadPersonnel();
+    } catch (error) {
+      console.error(
+        "Create guard login error:",
+        error
+      );
+
+      alert(
+        "Something went wrong while creating the guard login."
+      );
+    } finally {
+      setCreatingGuardLogin(false);
     }
-
-    alert(
-      `Login created successfully for ${selectedGuard.name}.\n\nGuard ID: ${result.guard.guard_id}\n\nGive the Guard ID and password to the guard.`
-    );
-
-    setGuardLoginPassword("");
-    setSelectedGuard(null);
-    setShowGuardLogin(false);
-
-    await loadPersonnel();
-  } catch (error) {
-    console.error(
-      "Create guard login error:",
-      error
-    );
-
-    alert(
-      "Something went wrong while creating the guard login."
-    );
-  } finally {
-    setCreatingGuardLogin(false);
   }
-}
 
-const filteredPersonnel =
+  const filteredPersonnel =
     attendance.filter((person) => {
       const site = getSite(person.site_id);
 
@@ -510,10 +529,10 @@ const filteredPersonnel =
                 onClick={() => {
                   setNewUserRole("Client");
                   setShowAddUser(true);
-              }}
->
-              <UserPlus size={17} />
-               Add Client
+                }}
+              >
+                <UserPlus size={17} />
+                Add Client
               </button>
 
               <button
@@ -521,11 +540,12 @@ const filteredPersonnel =
                 onClick={() => {
                   setNewUserRole("Supervisor");
                   setShowAddUser(true);
-               }}
->
-              <UserPlus size={17} />
-               Add Supervisor
+                }}
+              >
+                <UserPlus size={17} />
+                Add Supervisor
               </button>
+
               <button
                 className="refresh-button"
                 onClick={() =>
@@ -549,7 +569,9 @@ const filteredPersonnel =
             <div className="personnel-empty">
               <Users size={40} />
 
-              <h2>No guards registered</h2>
+              <h2>
+                No guards registered
+              </h2>
 
               <p>
                 Add a guard to begin managing
@@ -615,36 +637,43 @@ const filteredPersonnel =
                               value={site.id}
                             >
                               {site.name}
-
-                              {guard.auth_user_id ? (
-                           <div
-                              style={{
-                                marginTop: "10px",
-                                fontSize: "13px",
-                                fontWeight: 600,
-                              }}
-                             >
-                               Guard ID: {guard.guard_id}
-                            </div>
-                          ) : (
-                           <button
-                            type="button"
-                            className="refresh-button"
-                            style={{
-                               marginTop: "10px",
-                           }}
-                            onClick={() => {
-                             setSelectedGuard(guard);
-                             setGuardLoginPassword("");
-                              setShowGuardLogin(true);
-                           }}
-                        >
-                            Create Login
-                           </button>
-)}
                             </option>
                           ))}
                         </select>
+
+                        {guard.auth_user_id ? (
+                          <div
+                            style={{
+                              marginTop: "10px",
+                              fontSize: "13px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            Guard ID:{" "}
+                            {guard.guard_id}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="refresh-button"
+                            style={{
+                              marginTop: "10px",
+                            }}
+                            onClick={() => {
+                              setSelectedGuard(
+                                guard
+                              );
+                              setGuardLoginPassword(
+                                ""
+                              );
+                              setShowGuardLogin(
+                                true
+                              );
+                            }}
+                          >
+                            Create Login
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -798,7 +827,7 @@ const filteredPersonnel =
         </div>
       )}
 
-            {showAddUser && (
+      {showAddUser && (
         <div className="guard-modal-overlay">
           <div className="guard-modal">
             <div className="guard-modal-header">
@@ -831,7 +860,9 @@ const filteredPersonnel =
                   placeholder={`Enter ${newUserRole.toLowerCase()}'s full name`}
                   value={newUserName}
                   onChange={(e) =>
-                    setNewUserName(e.target.value)
+                    setNewUserName(
+                      e.target.value
+                    )
                   }
                 />
               </label>
@@ -844,7 +875,9 @@ const filteredPersonnel =
                   placeholder="Enter email address"
                   value={newUserEmail}
                   onChange={(e) =>
-                    setNewUserEmail(e.target.value)
+                    setNewUserEmail(
+                      e.target.value
+                    )
                   }
                 />
               </label>
@@ -1019,7 +1052,7 @@ const filteredPersonnel =
                       await loadPersonnel();
                     }
 
-                                       setAddingGuard(false);
+                    setAddingGuard(false);
                   }}
                 >
                   {addingGuard
@@ -1141,7 +1174,6 @@ const filteredPersonnel =
           </div>
         </div>
       )}
-
     </div>
   );
 }
