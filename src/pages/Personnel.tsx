@@ -60,6 +60,9 @@ export default function Personnel({
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [attendanceView, setAttendanceView] = useState<
+  "all" | "present" | "checkedOut"
+>("all");
 
   const [showAddGuard, setShowAddGuard] =
     useState(false);
@@ -409,7 +412,19 @@ export default function Personnel({
   }
 
   const filteredPersonnel =
-    attendance.filter((person) => {
+  attendance
+    .filter((person) => {
+      if (attendanceView === "present") {
+        return !person.check_out;
+      }
+
+      if (attendanceView === "checkedOut") {
+        return person.check_out !== null;
+      }
+
+      return true;
+    })
+    .filter((person) => {
       const site = getSite(person.site_id);
 
       const text = `
@@ -462,7 +477,16 @@ export default function Personnel({
       </header>
 
       <section className="personnel-summary">
-        <div className="personnel-summary-card">
+        <div
+          className={`personnel-summary-card ${
+            attendanceView === "all"
+             ? "personnel-summary-card-active"
+             : ""
+         }`}
+         onClick={() => setAttendanceView("all")}
+         role="button"
+         tabIndex={0}
+      >
           <div className="personnel-summary-icon">
             <Users size={20} />
           </div>
@@ -475,7 +499,16 @@ export default function Personnel({
           </div>
         </div>
 
-        <div className="personnel-summary-card">
+        <div
+          className={`personnel-summary-card ${
+           attendanceView === "present"
+             ? "personnel-summary-card-active"
+             : ""
+         }`}
+         onClick={() => setAttendanceView("present")}
+         role="button"
+         tabIndex={0}
+      >
           <div className="personnel-summary-icon present">
             <UserCheck size={20} />
           </div>
@@ -488,7 +521,16 @@ export default function Personnel({
           </div>
         </div>
 
-        <div className="personnel-summary-card">
+        <div
+          className={`personnel-summary-card ${
+           attendanceView === "checkedOut"
+             ? "personnel-summary-card-active"
+             : ""
+         }`}
+         onClick={() => setAttendanceView("checkedOut")}
+         role="button"
+         tabIndex={0}
+      >
           <div className="personnel-summary-icon checkout">
             <Clock size={20} />
           </div>
@@ -709,6 +751,14 @@ export default function Personnel({
               setSearch(e.target.value)
             }
           />
+        </div>
+
+        <div className="personnel-view-title">
+          {attendanceView === "all"
+            ? "Attendance Records"
+            : attendanceView === "present"
+            ? "Currently Present"
+            : "Checked Out"}
         </div>
 
         <span className="personnel-count">

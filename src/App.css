@@ -2831,6 +2831,18 @@ button {
   padding: 8px;
 }
 
+.personnel-summary-card {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.personnel-summary-card:hover {
+  transform: translateY(-2px);
+}
+
+.personnel-summary-card-active {
+  box-shadow: 0 0 0 2px currentColor;
+}
 
 
 

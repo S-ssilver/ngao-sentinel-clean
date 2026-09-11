@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import { Shield, Mail, Lock, Loader2 } from "lucide-react";
+import { Mail, Lock, Loader2 } from "lucide-react";
 import "./Login.css";
 
 export default function Login() {
@@ -31,28 +31,34 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-logo">
-          <div className="login-shield">
-            <Shield size={30} />
-          </div>
+       <div className="login-logo">
+  <img
+    src="/ngao-logo.jpeg"
+    alt="NGAO Logo"
+    className="company-logo"
+  />
 
-          <div>
-            <strong>NGAO</strong>
-            <span>SENTINEL</span>
-          </div>
-        </div>
+  <div className="company-name">
+    <strong>NGAO</strong>
+    <span>SENTINEL</span>
+  </div>
+</div>
 
         <div className="login-heading">
           <p>SECURE ACCESS</p>
           <h1>Welcome back</h1>
-          <span>Sign in to the NGAO Sentinel operations center.</span>
+          <span>
+            Sign in to the NGAO Sentinel operations center.
+          </span>
         </div>
 
         <form onSubmit={handleLogin}>
           <label>
             Email
+
             <div className="input-wrap">
               <Mail size={18} />
+
               <input
                 type="email"
                 placeholder="Enter your email"
@@ -65,8 +71,10 @@ export default function Login() {
 
           <label>
             Password
+
             <div className="input-wrap">
               <Lock size={18} />
+
               <input
                 type="password"
                 placeholder="Enter your password"
@@ -77,7 +85,11 @@ export default function Login() {
             </div>
           </label>
 
-          {error && <div className="login-error">{error}</div>}
+          {error && (
+            <div className="login-error">
+              {error}
+            </div>
+          )}
 
           <button type="submit" disabled={loading}>
             {loading ? (
@@ -98,4 +110,3 @@ export default function Login() {
     </div>
   );
 }
-
