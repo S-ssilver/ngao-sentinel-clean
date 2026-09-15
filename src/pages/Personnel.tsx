@@ -440,10 +440,9 @@ export default function Personnel({
     });
 
   const presentCount = attendance.filter(
-    (person) =>
-      person.status?.toLowerCase() ===
-      "present"
-  ).length;
+  (person) => !person.check_out
+).length;
+
 
   const checkedOutCount =
     attendance.filter(
@@ -499,16 +498,15 @@ export default function Personnel({
           </div>
         </div>
 
-        <div
+               <button
+          type="button"
           className={`personnel-summary-card ${
-           attendanceView === "present"
-             ? "personnel-summary-card-active"
-             : ""
-         }`}
-         onClick={() => setAttendanceView("present")}
-         role="button"
-         tabIndex={0}
-      >
+            attendanceView === "present"
+              ? "personnel-summary-card-active"
+              : ""
+          }`}
+          onClick={() => setAttendanceView("present")}
+        >
           <div className="personnel-summary-icon present">
             <UserCheck size={20} />
           </div>
@@ -519,18 +517,17 @@ export default function Personnel({
               {presentCount}
             </strong>
           </div>
-        </div>
+        </button>
 
-        <div
+        <button
+          type="button"
           className={`personnel-summary-card ${
-           attendanceView === "checkedOut"
-             ? "personnel-summary-card-active"
-             : ""
-         }`}
-         onClick={() => setAttendanceView("checkedOut")}
-         role="button"
-         tabIndex={0}
-      >
+            attendanceView === "checkedOut"
+              ? "personnel-summary-card-active"
+              : ""
+          }`}
+          onClick={() => setAttendanceView("checkedOut")}
+        >
           <div className="personnel-summary-icon checkout">
             <Clock size={20} />
           </div>
@@ -541,7 +538,7 @@ export default function Personnel({
               {checkedOutCount}
             </strong>
           </div>
-        </div>
+        </button>
       </section>
 
       {isOperationsManager && (

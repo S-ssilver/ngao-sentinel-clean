@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   Clock,
   MapPin,
+  CheckCircle,
 } from "lucide-react";
 
 type Incident = {
@@ -41,76 +42,121 @@ export default function Incidents({
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [clearingId, setClearingId] = useState<string | null>(null);
 
   async function loadIncidents() {
-  setLoading(true);
+    setLoading(true);
 
-  let sitesQuery = supabase
-    .from("sites")
-    .select("id, name, location");
+    let sitesQuery = supabase
+      .from("sites")
+      .select("id, name, location");
 
-  // Clients can only see their own sites
-  if (profile?.role === "Client") {
-    sitesQuery = sitesQuery.eq("client_id", profile.id);
-  }
+    // Clients can only see their own sites
+    if (profile?.role === "Client") {
+      sitesQuery = sitesQuery.eq("client_id", profile.id);
+    }
 
-  const sitesResult = await sitesQuery;
+    // Supervisors can only see their assigned sites
+    if (profile?.role === "Supervisor") {
+      sitesQuery = sitesQuery.eq("supervisor_id", profile.id);
+    }
 
-  if (sitesResult.error) {
-    console.error("Sites error:", sitesResult.error);
-    setSites([]);
-    setIncidents([]);
+    const sitesResult = await sitesQuery;
+
+    if (sitesResult.error) {
+      console.error("Sites error:", sitesResult.error);
+      setSites([]);
+      setIncidents([]);
+      setLoading(false);
+      return;
+    }
+
+    const allowedSites = sitesResult.data || [];
+    setSites(allowedSites);
+
+    const allowedSiteIds = allowedSites.map((site) => site.id);
+
+    // Clients and Supervisors only see incidents
+    // belonging to their allowed sites
+    if (
+      (profile?.role === "Client" ||
+        profile?.role === "Supervisor") &&
+      allowedSiteIds.length === 0
+    ) {
+      setIncidents([]);
+      setLoading(false);
+      return;
+    }
+
+    let incidentsQuery = supabase
+      .from("incident_logs")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (
+      profile?.role === "Client" ||
+      profile?.role === "Supervisor"
+    ) {
+      incidentsQuery = incidentsQuery.in(
+        "site_id",
+        allowedSiteIds,
+      );
+    }
+
+    const incidentsResult = await incidentsQuery;
+
+    if (incidentsResult.error) {
+      console.error(
+        "Incidents error:",
+        incidentsResult.error,
+      );
+    } else {
+      setIncidents(incidentsResult.data || []);
+    }
+
     setLoading(false);
-    return;
   }
 
-  const allowedSites = sitesResult.data || [];
-  setSites(allowedSites);
-
-  const allowedSiteIds = allowedSites.map((site) => site.id);
-
-  // If a client has no assigned sites, they have no incidents
-  if (
-    profile?.role === "Client" &&
-    allowedSiteIds.length === 0
-  ) {
-    setIncidents([]);
-    setLoading(false);
-    return;
-  }
-
-  let incidentsQuery = supabase
-    .from("incident_logs")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (profile?.role === "Client") {
-    incidentsQuery = incidentsQuery.in(
-      "site_id",
-      allowedSiteIds,
-    );
-  }
-
-  const incidentsResult = await incidentsQuery;
-
-  if (incidentsResult.error) {
-    console.error(
-      "Incidents error:",
-      incidentsResult.error,
-    );
-  } else {
-    setIncidents(incidentsResult.data || []);
-  }
-
-  setLoading(false);
-}
-
- useEffect(() => {
-  loadIncidents();
-}, [profile?.id, profile?.role]);
+  useEffect(() => {
+    loadIncidents();
+  }, [profile?.id, profile?.role]);
 
   function getSite(siteId: string) {
     return sites.find((site) => site.id === siteId);
+  }
+
+  async function clearIncident(incidentId: string) {
+    const confirmed = window.confirm(
+      "Are you sure this incident has been resolved and the site is secure?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setClearingId(incidentId);
+
+    const { error } = await supabase
+      .from("incident_logs")
+      .update({ status: "Cleared" })
+      .eq("id", incidentId);
+
+    if (error) {
+      console.error("Clear incident error:", error);
+      alert("Unable to clear the incident. Please try again.");
+      setClearingId(null);
+      return;
+    }
+
+    setIncidents((current) =>
+      current.map((incident) =>
+        incident.id === incidentId
+          ? { ...incident, status: "Cleared" }
+          : incident,
+      ),
+    );
+
+    setClearingId(null);
   }
 
   const filteredIncidents = incidents.filter((incident) => {
@@ -171,7 +217,7 @@ export default function Incidents({
                 incidents.filter(
                   (incident) =>
                     incident.severity?.toLowerCase() === "high" ||
-                    incident.severity?.toLowerCase() === "critical"
+                    incident.severity?.toLowerCase() === "critical",
                 ).length
               }
             </strong>
@@ -189,7 +235,7 @@ export default function Incidents({
               {
                 incidents.filter(
                   (incident) =>
-                    incident.status?.toLowerCase() === "open"
+                    incident.status?.toLowerCase() === "open",
                 ).length
               }
             </strong>
@@ -211,7 +257,9 @@ export default function Incidents({
 
         <span className="incident-count">
           {filteredIncidents.length}{" "}
-          {filteredIncidents.length === 1 ? "incident" : "incidents"}
+          {filteredIncidents.length === 1
+            ? "incident"
+            : "incidents"}
         </span>
       </div>
 
@@ -237,6 +285,10 @@ export default function Incidents({
           {filteredIncidents.map((incident) => {
             const site = getSite(incident.site_id);
 
+            const canClear =
+              profile?.role === "Supervisor" &&
+              incident.status?.toLowerCase() !== "cleared";
+
             return (
               <div className="incident-card" key={incident.id}>
                 <div className="incident-card-top">
@@ -251,6 +303,7 @@ export default function Incidents({
                       <span className="incident-site">
                         <MapPin size={14} />
                         {site?.name || "Unknown site"}
+
                         {site?.location
                           ? ` · ${site.location}`
                           : ""}
@@ -280,7 +333,9 @@ export default function Incidents({
                 <div className="incident-footer">
                   <span>
                     <Clock size={14} />
-                    {new Date(incident.created_at).toLocaleString()}
+                    {new Date(
+                      incident.created_at,
+                    ).toLocaleString()}
                   </span>
 
                   {incident.image_url && (
@@ -295,6 +350,24 @@ export default function Incidents({
                     </span>
                   )}
                 </div>
+
+                {canClear && (
+                  <div className="incident-actions">
+                    <button
+                      className="clear-incident-button"
+                      onClick={() =>
+                        clearIncident(incident.id)
+                      }
+                      disabled={clearingId === incident.id}
+                    >
+                      <CheckCircle size={16} />
+
+                      {clearingId === incident.id
+                        ? "Clearing..."
+                        : "Clear Incident"}
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

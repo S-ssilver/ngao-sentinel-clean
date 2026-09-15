@@ -44,10 +44,22 @@ type Incident = {
 
 type Attendance = {
   id: string;
+  site_id: string;
   guard_name: string;
+  guard_id: string | null;
   check_in: string | null;
   check_out: string | null;
-  status: string | null;
+  status: string;
+  created_at: string;
+};
+
+type Guard = {
+  id: string;
+  name: string;
+  phone: string | null;
+  site_id: string | null;
+  status: string;
+  guard_id: string | null;
 };
 
 export default function Sites({ profile }: { profile: Profile | null }) {
@@ -817,6 +829,7 @@ function SiteOperations({
 }) {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [guards, setGuards] = useState<Guard[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -826,6 +839,7 @@ function SiteOperations({
       const [
         incidentsResult,
         attendanceResult,
+        guardsResult,
       ] = await Promise.all([
         supabase
           .from("incident_logs")
@@ -841,6 +855,16 @@ function SiteOperations({
           .eq("site_id", site.id)
           .order("check_in", {
             ascending: false,
+          }),
+
+        supabase
+          .from("guards")
+          .select(
+            "id, name, phone, site_id, status, guard_id",
+          )
+          .eq("site_id", site.id)
+          .order("name", {
+            ascending: true,
           }),
       ]);
 
@@ -866,6 +890,17 @@ function SiteOperations({
         );
       }
 
+      if (guardsResult.error) {
+        console.error(
+          "Site guards error:",
+          guardsResult.error,
+        );
+      } else {
+        setGuards(
+          guardsResult.data || [],
+        );
+      }
+
       setLoading(false);
     }
 
@@ -873,12 +908,15 @@ function SiteOperations({
   }, [site.id]);
 
   const presentGuards = attendance.filter(
-    (guard) =>
-      !guard.check_out &&
-      (!guard.status ||
-        guard.status.toLowerCase() ===
-          "present"),
-  );
+  (record) =>
+    !record.check_out &&
+    (
+      !record.status ||
+      ["present", "on_duty", "on duty"].includes(
+        record.status.toLowerCase()
+      )
+    )
+);
 
   const openIncidents = incidents.filter(
     (incident) =>
@@ -886,6 +924,14 @@ function SiteOperations({
       incident.status.toLowerCase() ===
         "open",
   );
+
+  const getGuardAttendance = (guardId: string) => {
+  return attendance.find(
+    (record) =>
+      record.guard_id?.trim().toLowerCase() ===
+      guardId.trim().toLowerCase(),
+  );
+};
 
   return (
     <div className="sites-page site-operations-page">
@@ -1000,62 +1046,107 @@ function SiteOperations({
             <p className="operations-empty">
               Loading personnel...
             </p>
-          ) : presentGuards.length === 0 ? (
+          ) : guards.length === 0 ? (
             <div className="operations-empty">
               <Users size={28} />
               <strong>
-                No guards currently on duty
+                No guards assigned to this site
               </strong>
               <span>
-                Attendance will appear here when
-                guards check in.
+                Guards assigned to this site will
+                appear here.
               </span>
             </div>
           ) : (
             <div className="operations-list">
-              {presentGuards.map((guard) => (
-                <div
-                  className="operations-row"
-                  key={guard.id}
-                >
-                  <div className="guard-avatar">
-                    {guard.guard_name
-                      .split(" ")
-                      .map(
-                        (name) => name[0],
-                      )
-                      .slice(0, 2)
-                      .join("")
-                      .toUpperCase()}
-                  </div>
+              {guards.map((guard) => {
+                const guardAttendance =
+                  guard.guard_id
+                    ? getGuardAttendance(guard.guard_id)
+                    : undefined;
 
-                  <div>
-                    <strong>
-                      {guard.guard_name}
-                    </strong>
+                const isPresent =
+                  !!guardAttendance &&
+                  !guardAttendance.check_out &&
+                  (
+                    !guardAttendance.status ||
+                    ["present", "on_duty", "on duty"].includes(
+                      guardAttendance.status.toLowerCase()
+                    )
+                  );
+                return (
+                  <div
+                    className="operations-row"
+                    key={guard.id}
+                  >
+                    <div className="guard-avatar">
+                      {guard.name
+                        .split(" ")
+                        .map(
+                          (name) => name[0],
+                        )
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()}
+                    </div>
 
-                    <span>
-                      Checked in{" "}
-                      {guard.check_in
-                        ? new Date(
-                            guard.check_in,
+                    <div>
+                      <strong>
+                        {guard.name}
+                      </strong>
+
+                      {isPresent ? (
+                        <span>
+                          Checked in{" "}
+                          {guardAttendance?.check_in
+                            ? new Date(
+                                guardAttendance.check_in,
+                              ).toLocaleTimeString(
+                                [],
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )
+                            : "—"}
+                        </span>
+                      ) : guardAttendance?.check_out ? (
+                        <span>
+                          Checked out{" "}
+                          {new Date(
+                            guardAttendance.check_out,
                           ).toLocaleTimeString(
                             [],
                             {
                               hour: "2-digit",
                               minute: "2-digit",
                             },
-                          )
-                        : "—"}
-                    </span>
-                  </div>
+                          )}
+                        </span>
+                      ) : (
+                        <span>
+                          Not checked in
+                        </span>
+                      )}
+                    </div>
 
-                  <span className="present-badge">
-                    <i />
-                    PRESENT
-                  </span>
-                </div>
-              ))}
+                    {isPresent ? (
+                      <span className="present-badge">
+                        <i />
+                        PRESENT
+                      </span>
+                    ) : guardAttendance?.check_out ? (
+                      <span className="guard-status-badge checked-out">
+                        CHECKED OUT
+                      </span>
+                    ) : (
+                      <span className="guard-status-badge not-checked-in">
+                        NOT CHECKED IN
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -1132,6 +1223,7 @@ function SiteOperations({
         <span>
           NGAO SENTINEL SECURITY NETWORK
         </span>
+
         <span>
           Site operations monitoring active
         </span>

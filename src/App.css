@@ -2844,6 +2844,38 @@ button {
   box-shadow: 0 0 0 2px currentColor;
 }
 
+.incident-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.clear-incident-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #16a34a;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.clear-incident-button:hover {
+  background: #15803d;
+}
+
+.clear-incident-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 
 
 
