@@ -2876,6 +2876,30 @@ button {
   cursor: not-allowed;
 }
 
+/* ================================
+   NGAO SENTINEL SPLASH SCREEN
+================================ */
+
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  overflow: hidden;
+}
+
+.splash-screen video {
+  width: 110%;
+  height: 110%;
+  object-fit: contain;
+  display: block;
+}
+
 
 
 

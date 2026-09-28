@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import splashVideo from "./assets/ngao-splash.mp4";
 import { supabase } from "./lib/supabase";
 import Login from "./pages/Login";
 import Dashboard from "./Dashboard";
@@ -62,8 +63,12 @@ function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<Page>("dashboard");
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
+    const splashTimer = setTimeout(() => {
+  setShowSplash(false);
+}, 3000);
     async function loadUser() {
       const {
         data: { session },
@@ -108,7 +113,10 @@ function App() {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+  clearTimeout(splashTimer);
+  subscription.unsubscribe();
+};
   }, []);
 
   async function logout() {
@@ -116,6 +124,19 @@ function App() {
     setSession(null);
     setProfile(null);
   }
+
+  if (showSplash) {
+  return (
+    <div className="splash-screen">
+      <video
+        src={splashVideo}
+        autoPlay
+        muted
+        playsInline
+      />
+    </div>
+  );
+}
 
   if (loading) {
     return (

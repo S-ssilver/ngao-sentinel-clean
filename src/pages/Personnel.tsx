@@ -61,8 +61,8 @@ export default function Personnel({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [attendanceView, setAttendanceView] = useState<
-  "all" | "present" | "checkedOut"
->("all");
+    "all" | "present" | "checkedOut"
+  >("all");
 
   const [showAddGuard, setShowAddGuard] =
     useState(false);
@@ -411,38 +411,135 @@ export default function Personnel({
     }
   }
 
-  const filteredPersonnel =
-  attendance
-    .filter((person) => {
-      if (attendanceView === "present") {
-        return !person.check_out;
-      }
-
-      if (attendanceView === "checkedOut") {
-        return person.check_out !== null;
-      }
-
-      return true;
-    })
-    .filter((person) => {
-      const site = getSite(person.site_id);
-
-      const text = `
-        ${person.guard_name}
-        ${person.status}
-        ${site?.name || ""}
-        ${site?.location || ""}
-      `.toLowerCase();
-
-      return text.includes(
-        search.toLowerCase()
+  async function addGuard() {
+    if (!guardName.trim()) {
+      alert(
+        "Please enter the guard's name."
       );
-    });
+      return;
+    }
+
+    setAddingGuard(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert(
+          "Your session has expired. Please log in again."
+        );
+        return;
+      }
+
+      const {
+        data: currentProfile,
+        error: profileError,
+      } = await supabase
+        .from("Profiles")
+        .select("company_id")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        console.error(
+          "Profile/company error:",
+          profileError
+        );
+
+        alert(
+          `Unable to determine your security company's account: ${profileError.message}`
+        );
+        return;
+      }
+
+      if (!currentProfile?.company_id) {
+        alert(
+          "Your account is not linked to a security company yet. Please contact the system administrator."
+        );
+        return;
+      }
+
+      const { error } = await supabase
+        .from("guards")
+        .insert({
+          name: guardName.trim(),
+          phone:
+            guardPhone.trim() || null,
+          company_id:
+            currentProfile.company_id,
+          status: "ACTIVE",
+        });
+
+      if (error) {
+        console.error(
+          "Add guard error:",
+          error
+        );
+
+        alert(
+          `Unable to add guard: ${error.message}`
+        );
+        return;
+      }
+
+      setGuardName("");
+      setGuardPhone("");
+      setShowAddGuard(false);
+
+      await loadPersonnel();
+
+      alert(
+        "Guard added successfully."
+      );
+    } catch (error) {
+      console.error(
+        "Add guard error:",
+        error
+      );
+
+      alert(
+        "Something went wrong while adding the guard."
+      );
+    } finally {
+      setAddingGuard(false);
+    }
+  }
+
+  const filteredPersonnel =
+    attendance
+      .filter((person) => {
+        if (attendanceView === "present") {
+          return !person.check_out;
+        }
+
+        if (attendanceView === "checkedOut") {
+          return person.check_out !== null;
+        }
+
+        return true;
+      })
+      .filter((person) => {
+        const site = getSite(
+          person.site_id
+        );
+
+        const text = `
+          ${person.guard_name}
+          ${person.status}
+          ${site?.name || ""}
+          ${site?.location || ""}
+        `.toLowerCase();
+
+        return text.includes(
+          search.toLowerCase()
+        );
+      });
 
   const presentCount = attendance.filter(
-  (person) => !person.check_out
-).length;
-
+    (person) => !person.check_out
+  ).length;
 
   const checkedOutCount =
     attendance.filter(
@@ -479,40 +576,50 @@ export default function Personnel({
         <div
           className={`personnel-summary-card ${
             attendanceView === "all"
-             ? "personnel-summary-card-active"
-             : ""
-         }`}
-         onClick={() => setAttendanceView("all")}
-         role="button"
-         tabIndex={0}
-      >
+              ? "personnel-summary-card-active"
+              : ""
+          }`}
+          onClick={() =>
+            setAttendanceView("all")
+          }
+          role="button"
+          tabIndex={0}
+        >
           <div className="personnel-summary-icon">
             <Users size={20} />
           </div>
 
           <div>
-            <span>Attendance Records</span>
+            <span>
+              Attendance Records
+            </span>
+
             <strong>
               {attendance.length}
             </strong>
           </div>
         </div>
 
-               <button
+        <button
           type="button"
           className={`personnel-summary-card ${
             attendanceView === "present"
               ? "personnel-summary-card-active"
               : ""
           }`}
-          onClick={() => setAttendanceView("present")}
+          onClick={() =>
+            setAttendanceView("present")
+          }
         >
           <div className="personnel-summary-icon present">
             <UserCheck size={20} />
           </div>
 
           <div>
-            <span>Currently Present</span>
+            <span>
+              Currently Present
+            </span>
+
             <strong>
               {presentCount}
             </strong>
@@ -526,7 +633,9 @@ export default function Personnel({
               ? "personnel-summary-card-active"
               : ""
           }`}
-          onClick={() => setAttendanceView("checkedOut")}
+          onClick={() =>
+            setAttendanceView("checkedOut")
+          }
         >
           <div className="personnel-summary-icon checkout">
             <Clock size={20} />
@@ -534,6 +643,7 @@ export default function Personnel({
 
           <div>
             <span>Checked Out</span>
+
             <strong>
               {checkedOutCount}
             </strong>
@@ -635,7 +745,9 @@ export default function Personnel({
                       </div>
 
                       <div className="person-info">
-                        <h2>{guard.name}</h2>
+                        <h2>
+                          {guard.name}
+                        </h2>
 
                         <span className="person-site">
                           <MapPin size={14} />
@@ -1062,45 +1174,7 @@ export default function Personnel({
                   type="button"
                   className="refresh-button"
                   disabled={addingGuard}
-                  onClick={async () => {
-                    if (!guardName.trim()) {
-                      alert(
-                        "Please enter the guard's name."
-                      );
-                      return;
-                    }
-
-                    setAddingGuard(true);
-
-                    const { error } =
-                      await supabase
-                        .from("guards")
-                        .insert({
-                          name: guardName.trim(),
-                          phone:
-                            guardPhone.trim() ||
-                            null,
-                        });
-
-                    if (error) {
-                      console.error(
-                        "Add guard error:",
-                        error
-                      );
-
-                      alert(
-                        `Unable to add guard: ${error.message}`
-                      );
-                    } else {
-                      setGuardName("");
-                      setGuardPhone("");
-                      setShowAddGuard(false);
-
-                      await loadPersonnel();
-                    }
-
-                    setAddingGuard(false);
-                  }}
+                  onClick={addGuard}
                 >
                   {addingGuard
                     ? "Adding..."
@@ -1121,7 +1195,9 @@ export default function Personnel({
                   GUARD ACCESS
                 </p>
 
-                <h2>Create Guard Login</h2>
+                <h2>
+                  Create Guard Login
+                </h2>
               </div>
 
               <button
@@ -1138,7 +1214,9 @@ export default function Personnel({
 
             <div className="guard-form">
               <div>
-                <strong>Guard Name</strong>
+                <strong>
+                  Guard Name
+                </strong>
 
                 <p
                   style={{
@@ -1151,7 +1229,9 @@ export default function Personnel({
               </div>
 
               <div>
-                <strong>Guard ID</strong>
+                <strong>
+                  Guard ID
+                </strong>
 
                 <p
                   style={{
@@ -1224,4 +1304,3 @@ export default function Personnel({
     </div>
   );
 }
-
