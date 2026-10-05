@@ -24,6 +24,7 @@ type Profile = {
   email: string;
   name: string | null;
   role: string | null;
+  company_id: string | null;
 };
 
 type Page =

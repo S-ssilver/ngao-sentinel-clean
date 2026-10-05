@@ -31,6 +31,7 @@ type Profile = {
   email: string;
   name: string | null;
   role: string | null;
+  company_id: string | null;
 };
 
 type Incident = {
@@ -125,7 +126,7 @@ export default function Sites({ profile }: { profile: Profile | null }) {
 
     const { data, error } = await supabase
       .from("Profiles")
-      .select("id, email, name, role")
+      .select("id, email, name, role, company_id")
       .in("role", ["Client", "Supervisor"])
       .order("name", { ascending: true });
 
@@ -171,12 +172,13 @@ export default function Sites({ profile }: { profile: Profile | null }) {
     setFormError("");
 
     const { error } = await supabase.from("sites").insert({
-      name: siteName.trim(),
-      location: siteLocation.trim(),
-      status: siteStatus,
-      client_id: clientId || null,
-      supervisor_id: supervisorId || null,
-    });
+  name: siteName.trim(),
+  location: siteLocation.trim(),
+  status: siteStatus,
+  company_id: profile?.company_id || null,
+  client_id: clientId || null,
+  supervisor_id: supervisorId || null,
+});
 
     if (error) {
       console.error("Add site error:", error);

@@ -104,6 +104,11 @@ export default function Login() {
         </form>
 
         <div className="login-footer">
+           <div className="legal-text">
+    By signing in, you acknowledge that you have read and agree to the{" "}
+    <a href="/terms">User Agreement</a> and{" "}
+    <a href="/privacy">Privacy Policy</a>.
+  </div>
           NGAO Sentinel · Secure Operations Platform
         </div>
       </div>
