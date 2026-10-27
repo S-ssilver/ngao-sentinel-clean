@@ -7,6 +7,7 @@ import Sites from "./pages/Sites";
 import Incidents from "./pages/Incidents";
 import Personnel from "./pages/Personnel";
 import Activity from "./pages/Activity";
+import Footage from "./pages/Footage";
 import {
   LayoutDashboard,
   MapPin,
@@ -31,6 +32,7 @@ type Page =
   | "dashboard"
   | "sites"
   | "incidents"
+  | "footage"
   | "personnel"
   | "activity";
 
@@ -39,6 +41,7 @@ const rolePermissions: Record<string, Page[]> = {
     "dashboard",
     "sites",
     "incidents",
+    "footage",
     "personnel",
     "activity",
   ],
@@ -47,6 +50,7 @@ const rolePermissions: Record<string, Page[]> = {
     "dashboard",
     "sites",
     "incidents",
+    "footage",
     "personnel",
     "activity",
   ],
@@ -55,6 +59,7 @@ const rolePermissions: Record<string, Page[]> = {
     "dashboard",
     "sites",
     "incidents",
+    "footage",
     "activity",
   ],
 };
@@ -228,6 +233,21 @@ function App() {
               </button>
             )}
 
+            {canAccess("footage") && (
+              <button
+                className={
+                  safePage === "footage"
+                    ? "nav-item active"
+                    : "nav-item"
+                }
+                onClick={() => setPage("footage")}
+              >
+                <Radio size={19} />
+                <span>Footage</span>
+              </button>
+            )}
+          
+
             {canAccess("personnel") && (
               <button
                 className={
@@ -294,6 +314,10 @@ function App() {
 
         {safePage === "incidents" && (
   <Incidents profile={profile} />
+)}
+
+{safePage === "footage" && (
+  <Footage profile={profile} />
 )}
 
         {safePage === "personnel" && (
